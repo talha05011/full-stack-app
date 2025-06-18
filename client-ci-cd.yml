@@ -1,0 +1,39 @@
+name: Frontend CI/CD
+
+on:
+  push:
+    branches: [dev, staging, main]
+    paths: ['client/**']
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build Docker image
+      - name: Build Frontend Image
+        run: |
+          cd client
+          docker build -t frontend:$GITHUB_SHA .
+
+      # Push to GitHub Container Registry (GHCR)
+      - name: Push to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker tag frontend:$GITHUB_SHA ghcr.io/${{ github.repository_owner }}/frontend:$GITHUB_SHA
+          docker push ghcr.io/${{ github.repository_owner }}/frontend:$GITHUB_SHA
+
+      # Deploy to EC2 (Dev/Staging/Prod)
+      - name: Deploy to Dev EC2
+        if: github.ref == 'refs/heads/dev'
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEV_EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            docker stop frontend || true
+            docker rm frontend || true
+            docker pull ghcr.io/${{ github.repository_owner }}/frontend:$GITHUB_SHA
+            docker run -d -p 3000:3000 --name frontend ghcr.io/${{ github.repository_owner }}/frontend:$GITHUB_SHA
