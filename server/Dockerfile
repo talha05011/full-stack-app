@@ -1,18 +1,16 @@
-# Stage 1: Install dependencies
+# Stage 1: Build
 FROM node:16-alpine as builder
-
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
 
-# Stage 2: Run the application
+# Stage 2: Runtime
 FROM node:16-alpine
-
 WORKDIR /app
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/ ./
-
+COPY --from=builder /app .
+# Inject build version
+ARG DEPLOY_VERSION
+ENV DEPLOY_VERSION=${DEPLOY_VERSION}
 EXPOSE 5000
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

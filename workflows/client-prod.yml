@@ -1,0 +1,19 @@
+name: Frontend Prod Deployment
+
+on:
+  push:
+    branches: [main]
+    paths: ['client/**']
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: trstringer/manual-approval@v1  # Manual approval
+      - run: |
+          cd client
+          docker build -t frontend:prod .
+          ssh -i ${{ secrets.EC2_SSH_KEY }} ubuntu@${{ secrets.PROD_EC2_HOST }} \
+            "docker stop frontend || true && \
+             docker run -d -p 3000:3000 --name frontend --restart unless-stopped frontend:prod"

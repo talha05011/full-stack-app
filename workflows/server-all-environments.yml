@@ -1,0 +1,66 @@
+name: Backend - All Environments
+
+on:
+  push:
+    branches: [dev, staging, main]
+    paths: ['server/**']
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build with DB config
+      - name: Build Docker Image
+        run: |
+          cd server
+          docker build \
+            --build-arg DB_HOST=${{ 
+              github.ref == 'refs/heads/dev' && secrets.DB_DEV_HOST ||
+              github.ref == 'refs/heads/staging' && secrets.DB_STAGING_HOST ||
+              secrets.DB_PROD_HOST
+            }} \
+            -t backend:${{ github.ref_name }} .
+
+      # Database migrations (staging/prod)
+      - name: Run Migrations
+        if: github.ref != 'refs/heads/dev'
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ 
+            github.ref == 'refs/heads/staging' && secrets.STAGING_EC2_HOST ||
+            secrets.PROD_EC2_HOST
+          }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            docker exec backend npm run migrate
+
+      # Deploy
+      - name: Deploy to ${{ github.ref_name }}
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ 
+            github.ref == 'refs/heads/dev' && secrets.DEV_EC2_HOST ||
+            github.ref == 'refs/heads/staging' && secrets.STAGING_EC2_HOST ||
+            secrets.PROD_EC2_HOST
+          }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            docker stop backend || true
+            docker run -d \
+              -p 5000:5000 \
+              -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+              --name backend \
+              --restart unless-stopped \
+              backend:${{ github.ref_name }}
+
+            # Health check with retries
+            curl --retry 5 --retry-delay 10 --fail http://localhost:5000/health
+
+      # Prod approval
+      - name: Approve Production
+        if: github.ref == 'refs/heads/main'
+        uses: trstringer/manual-approval@v1
+        timeout-minutes: 30

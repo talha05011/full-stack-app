@@ -1,13 +1,37 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Dummy Frontend</title>
+    <title>CI/CD Test Frontend</title>
     <style>
-        body { font-family: Arial; text-align: center; margin-top: 50px; }
+        body { 
+            font-family: Arial; 
+            text-align: center; 
+            margin-top: 50px;
+            background: #f5f5f5;
+        }
+        .deploy-info {
+            background: #333;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
-    <h1>🚀 Dummy Frontend</h1>
+    <h1 style="color: #4285F4;">🚀 Frontend Running</h1>
+    <div class="deploy-info">
+        DEPLOY VERSION: <span id="version">DEV</span><br>
+        LAST UPDATED: <span id="timestamp"></span>
+    </div>
     <p>Health check: <a href="/health">/health</a></p>
+
+    <script>
+        // Auto-updating timestamp
+        document.getElementById('timestamp').textContent = new Date().toLocaleString();
+        // Change color every deploy
+        const colors = ['#4285F4', '#EA4335', '#FBBC05', '#34A853'];
+        document.body.style.backgroundColor = colors[Math.floor(Math.random() * 4)];
+    </script>
 </body>
 </html>
