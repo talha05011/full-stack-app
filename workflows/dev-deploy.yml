@@ -1,0 +1,45 @@
+name: Dev Deployment (Frontend + Backend)
+
+on:
+  push:
+    branches: [dev]  # Only triggers on dev branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout code
+      - uses: actions/checkout@v4
+
+      # Frontend Build & Deploy
+      - name: Build Frontend
+        working-directory: ./client
+        run: |
+          docker build -t frontend:dev .
+          echo "Frontend built successfully"
+
+      # Backend Build & Deploy
+      - name: Build Backend
+        working-directory: ./server
+        run: |
+          docker build -t backend:dev .
+          echo "Backend built successfully"
+
+      # SSH Deployment
+      - name: Deploy to Dev EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEV_EC2_HOST }}  # Your t2.micro IP
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Stop old containers
+            docker stop frontend backend || true
+
+            # Deploy new containers
+            docker run -d -p 3000:3000 --name frontend --restart unless-stopped frontend:dev
+            docker run -d -p 5000:5000 --name backend --restart unless-stopped backend:dev
+
+            # Verify
+            echo "Frontend running at: http://localhost:3000"
+            echo "Backend health check: http://localhost:5000/health"
