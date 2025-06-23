@@ -1,18 +1,27 @@
-name: Backend Dev Deployment
+name: Frontend Dev Deployment
 
 on:
   push:
     branches: [dev]
-    paths: ['server/**']
+    paths: ['client/**']
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: |
-          cd server
-          docker build -t backend:dev .
-          ssh -i ${{ secrets.EC2_SSH_KEY }} ubuntu@${{ secrets.DEV_EC2_HOST }} \
-            "docker stop backend || true && \
-             docker run -d -p 5000:5000 --name backend --restart unless-stopped backend:dev"
+
+      - name: Build Docker Image
+        run: |
+          cd client
+          docker build -t frontend:dev .
+
+      - name: Deploy to Dev EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEV_EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            docker stop frontend || true
+            docker run -d -p 3000:3000 --name frontend --restart unless-stopped frontend:dev

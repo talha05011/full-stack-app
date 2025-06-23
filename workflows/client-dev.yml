@@ -10,9 +10,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: |
+
+      - name: Build Docker Image
+        run: |
           cd client
           docker build -t frontend:dev .
-          ssh -i ${{ secrets.EC2_SSH_KEY }} ubuntu@${{ secrets.DEV_EC2_HOST }} \
-            "docker stop frontend || true && \
-             docker run -d -p 3000:3000 --name frontend --restart unless-stopped frontend:dev"
+
+      - name: Deploy to Dev EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEV_EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            docker stop frontend || true
+            docker run -d -p 3000:3000 --name frontend --restart unless-stopped frontend:dev
