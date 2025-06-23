@@ -1,0 +1,22 @@
+name: Backend Staging Deployment
+
+on:
+  push:
+    branches: [staging]
+    paths: ['server/**']
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          cd server
+          docker build -t backend:staging --build-arg DB_HOST=${{ secrets.DB_STAGING_HOST }} .
+          ssh -i ${{ secrets.EC2_SSH_KEY }} ubuntu@${{ secrets.STAGING_EC2_HOST }} \
+            "docker stop backend || true && \
+             docker run -d -p 5000:5000 -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} --name backend --restart unless-stopped backend:staging"
+      - name: Health Check
+        run: |
+          ssh -i ${{ secrets.EC2_SSH_KEY }} ubuntu@${{ secrets.STAGING_EC2_HOST }} \
+            "curl -f http://localhost:5000/health || exit 1"
